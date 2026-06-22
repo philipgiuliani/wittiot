@@ -919,19 +919,26 @@ class API:
         
         self.unit_temp = 0
         self._last_firmware_update_info: Optional[Dict[str, Any]] = None
+        # Per-instance copy of sensor info to avoid cross-gateway name pollution (#68)
+        self.sensor_info: dict[str, dict[str, Any]] = {
+            k: dict(v) for k, v in MultiSensorInfo.SENSOR_INFO.items()
+        }
 
     def replace_title_bsr(self,res_data,val1,val2,ch,index):
         key_name = f"{val1}{ch+1}"
         key_name_batt = f"{key_name}_batt"
         key_name_signal = f"{key_name}_signal"
         key_name_rssi = f"{key_name}_rssi"
-        # MultiSensorInfo.SENSOR_INFO[key_name]["name"] = res_data[val2][index]["name"]
-        MultiSensorInfo.SENSOR_INFO[key_name_batt]["name"] = res_data[val2][index]["name"]+" Battery"
-        MultiSensorInfo.SENSOR_INFO[key_name_signal]["name"] = res_data[val2][index]["name"]+" Signal"
-        MultiSensorInfo.SENSOR_INFO[key_name_rssi]["name"] = res_data[val2][index]["name"]+" RSSI"
+        if key_name_batt in self.sensor_info:
+            self.sensor_info[key_name_batt]["name"] = res_data[val2][index]["name"]+" Battery"
+        if key_name_signal in self.sensor_info:
+            self.sensor_info[key_name_signal]["name"] = res_data[val2][index]["name"]+" Signal"
+        if key_name_rssi in self.sensor_info:
+            self.sensor_info[key_name_rssi]["name"] = res_data[val2][index]["name"]+" RSSI"
     def replace_title(self,res_data,val1,val2,ch,index,add_name=""):
         key_name = f"{val1}{ch+1}"
-        MultiSensorInfo.SENSOR_INFO[key_name]["name"] = res_data[val2][index]["name"] + add_name
+        if key_name in self.sensor_info:
+            self.sensor_info[key_name]["name"] = res_data[val2][index]["name"] + add_name
         
     def is_valid_float(self,val):
         try:
@@ -2016,10 +2023,10 @@ class API:
                 key_signal = f"{key_prefix}_signal"
                 key_rssi = f"{key_prefix}_rssi"
                 for key, suffix in ((key_batt, "Battery"), (key_signal, "Signal"), (key_rssi, "Rssi")):
-                    if key in MultiSensorInfo.SENSOR_INFO:
-                        MultiSensorInfo.SENSOR_INFO[key]["dev_type"] = f"CH{ch+1} EC"
+                    if key in self.sensor_info:
+                        self.sensor_info[key]["dev_type"] = f"CH{ch+1} EC"
                         if res_data["ch_ec"][index]["name"]=="":
-                            MultiSensorInfo.SENSOR_INFO[key]["name"] = f"Soil EC {suffix} CH{ch+1}"
+                            self.sensor_info[key]["name"] = f"Soil EC {suffix} CH{ch+1}"
                 if res_data["ch_ec"][index]["name"]!="":
                     self.replace_title(res_data,"ec_ch","ch_ec",ch,index)
                     self.replace_title_bsr(res_data,"Soilmoisture_ch","ch_ec",ch,index)
